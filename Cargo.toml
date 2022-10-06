@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 deno_core = "0.153.0"
+deno_cli = {  path = "../../denoland/deno/cli"}
 tokio = { version = "1.21.1", features = ["full"] }
 futures = "0.3.21"
 deno_fetch = "0.94.0"
