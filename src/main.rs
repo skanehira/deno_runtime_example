@@ -47,7 +47,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
 
     let mut worker = deno_runtime::worker::MainWorker::bootstrap_from_options(
         main_module.clone(),
-        Permissions::default(),
+        Permissions::allow_all(),
         options,
     );
 

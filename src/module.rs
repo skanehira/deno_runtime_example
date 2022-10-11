@@ -1,3 +1,7 @@
+use deno_ast::parse_module;
+use deno_ast::EmitOptions;
+use deno_ast::ParseParams;
+use deno_ast::SourceTextInfo;
 use deno_core::anyhow::Error;
 use deno_core::ModuleLoader;
 use deno_core::ModuleSource;
@@ -26,6 +30,7 @@ impl ModuleLoader for FsModuleLoader {
         async move {
             let code;
             if module_specifier.scheme().starts_with("http") {
+                println!("Downloading: {}", module_specifier);
                 let client = create_http_client("deno".into(), None, vec![], None, None, None)?;
                 let resp = client.get(module_specifier.to_string()).send().await?;
                 code = resp.bytes().await?.to_vec();
@@ -44,6 +49,21 @@ impl ModuleLoader for FsModuleLoader {
             } else {
                 ModuleType::JavaScript
             };
+
+            let source = String::from_utf8(code).unwrap();
+            let parsed_source = parse_module(ParseParams {
+                specifier: module_specifier.clone().into(),
+                media_type: deno_ast::MediaType::TypeScript,
+                text_info: SourceTextInfo::new(source.into()),
+                capture_tokens: false,
+                maybe_syntax: None,
+                scope_analysis: false,
+            })
+            .unwrap();
+
+            let options = EmitOptions::default();
+            let source = parsed_source.transpile(&options).unwrap();
+            let code: Vec<u8> = source.text.as_bytes().to_vec();
 
             let module = ModuleSource {
                 code: code.into_boxed_slice(),
