@@ -2,7 +2,7 @@ use deno_core::error::AnyError;
 use deno_runtime::permissions::Permissions;
 use deno_runtime::{deno_core, BootstrapOptions};
 use std::{rc::Rc, sync::Arc};
-mod module;
+mod module_loader;
 
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let main_module = deno_core::resolve_path(file_path).unwrap();
@@ -32,7 +32,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
         create_web_worker_cb: Arc::new(|_| unreachable!()),
         maybe_inspector_server: None,
         should_break_on_first_statement: false,
-        module_loader: Rc::new(module::FsModuleLoader),
+        module_loader: Rc::new(module_loader::FsModuleLoader),
         npm_resolver: None,
         get_error_class_fn: None,
         cache_storage_dir: None,
@@ -51,9 +51,7 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
         options,
     );
 
-    let result = worker.execute_main_module(&main_module).await;
-    dbg!(&result);
-    Ok(())
+    worker.execute_main_module(&main_module).await
 }
 
 fn main() {

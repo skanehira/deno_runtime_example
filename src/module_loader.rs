@@ -28,12 +28,11 @@ impl ModuleLoader for FsModuleLoader {
     ) -> Pin<Box<ModuleSourceFuture>> {
         let module_specifier = module_specifier.clone();
         async move {
-            let code;
-            if module_specifier.scheme().starts_with("http") {
+            let code = if module_specifier.scheme().starts_with("http") {
                 println!("Downloading: {}", module_specifier);
                 let client = create_http_client("deno".into(), None, vec![], None, None, None)?;
                 let resp = client.get(module_specifier.to_string()).send().await?;
-                code = resp.bytes().await?.to_vec();
+                resp.bytes().await?.to_vec()
             } else {
                 let path = module_specifier.to_file_path().map_err(|_| {
                     deno_core::error::generic_error(format!(
@@ -41,8 +40,8 @@ impl ModuleLoader for FsModuleLoader {
                         module_specifier
                     ))
                 })?;
-                code = std::fs::read(path)?;
-            }
+                std::fs::read(path)?
+            };
 
             let module_type = if module_specifier.to_string().ends_with(".json") {
                 ModuleType::Json
@@ -50,20 +49,23 @@ impl ModuleLoader for FsModuleLoader {
                 ModuleType::JavaScript
             };
 
-            let source = String::from_utf8(code).unwrap();
-            let parsed_source = parse_module(ParseParams {
-                specifier: module_specifier.clone().into(),
-                media_type: deno_ast::MediaType::TypeScript,
-                text_info: SourceTextInfo::new(source.into()),
-                capture_tokens: false,
-                maybe_syntax: None,
-                scope_analysis: false,
-            })
-            .unwrap();
-
-            let options = EmitOptions::default();
-            let source = parsed_source.transpile(&options).unwrap();
-            let code: Vec<u8> = source.text.as_bytes().to_vec();
+            let code = if module_type == ModuleType::JavaScript {
+                let source = String::from_utf8(code).unwrap();
+                let parsed_source = parse_module(ParseParams {
+                    specifier: module_specifier.clone().into(),
+                    media_type: deno_ast::MediaType::TypeScript,
+                    text_info: SourceTextInfo::new(source.into()),
+                    capture_tokens: false,
+                    maybe_syntax: None,
+                    scope_analysis: false,
+                })
+                .unwrap();
+                let options = EmitOptions::default();
+                let source = parsed_source.transpile(&options).unwrap();
+                source.text.as_bytes().to_vec()
+            } else {
+                code
+            };
 
             let module = ModuleSource {
                 code: code.into_boxed_slice(),
