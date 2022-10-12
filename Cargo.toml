@@ -12,3 +12,5 @@ futures = "0.3.21"
 deno_fetch = "0.94.0"
 deno_runtime = "0.79.0"
 deno_ast = {version = "0.19.0", features = ["transpiling"] }
+serde_v8 = "0.65.0"
+serde = "1.0.145"
