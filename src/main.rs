@@ -6,6 +6,11 @@ use deno_runtime::{deno_core, BootstrapOptions};
 use std::{rc::Rc, sync::Arc};
 mod module_loader;
 
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct Object {
+    pub name: Option<String>,
+}
+
 async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let main_module = deno_core::resolve_path(file_path).unwrap();
     let options = deno_runtime::worker::WorkerOptions {
@@ -57,38 +62,25 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let module_id = runtime
         .load_main_module(
             &main_module,
-            Some(r#"export const obj = {name: "gorilla"}; console.log("name:", name); "#.into()),
+            Some(r#"
+const obj = {name: "gorilla"};
+export { obj };
+"#.into()),
         )
         .await?;
 
-    let global_scope = runtime.get_module_namespace(module_id).unwrap();
-    {
-        {
-            let handle_scope = &mut runtime.handle_scope();
-            let local_scope = v8::Local::<v8::Object>::new(handle_scope, &global_scope);
+    let _ = runtime.mod_evaluate(module_id);
+    runtime.run_event_loop(false).await?;
 
-            let key = serde_v8::to_v8(handle_scope, "name")?;
-            let value = serde_v8::to_v8(handle_scope, "gorilla")?;
-            local_scope.set(handle_scope, key, value);
-        }
+    let module_handle_scope = runtime.get_module_namespace(module_id)?;
 
-        let _ = runtime.mod_evaluate(module_id);
-        runtime.run_event_loop(false).await?;
-    }
+    let global_handle_scope = &mut runtime.handle_scope();
+    let local_handle_scope = v8::Local::<v8::Object>::new(global_handle_scope, module_handle_scope);
 
-    let scope = &mut runtime.handle_scope();
-    let local_object = v8::Local::<v8::Object>::new(scope, global_scope);
-
-    let default_export_name = v8::String::new(scope, "obj").unwrap();
-    let binding = local_object.get(scope, default_export_name.into());
+    let export_name = v8::String::new(global_handle_scope, "obj").context("failed to get obj")?;
+    let binding = local_handle_scope.get(global_handle_scope, export_name.into());
     let object = binding.context("not found obj")?;
-
-    #[derive(Debug, Default, serde::Deserialize)]
-    pub struct Object {
-        pub name: Option<String>,
-    }
-
-    let obj: Object = serde_v8::from_v8(scope, object).unwrap();
+    let obj: Object = serde_v8::from_v8(global_handle_scope, object)?;
     dbg!(obj);
     Ok(())
 }
