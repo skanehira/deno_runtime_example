@@ -3,6 +3,7 @@ use deno_core::error::AnyError;
 use deno_core::v8;
 use deno_runtime::permissions::Permissions;
 use deno_runtime::{deno_core, BootstrapOptions};
+use futures::executor::block_on;
 use std::{rc::Rc, sync::Arc};
 mod module_loader;
 
@@ -81,16 +82,10 @@ export { obj };
     let binding = local_handle_scope.get(global_handle_scope, export_name.into());
     let object = binding.context("not found obj")?;
     let obj: Object = serde_v8::from_v8(global_handle_scope, object)?;
-    dbg!(obj);
+    println!("{}", obj.name.unwrap());
     Ok(())
 }
 
 fn main() {
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-    if let Err(error) = runtime.block_on(run_js("./main.js")) {
-        eprintln!("error: {}", error);
-    }
+    _ = block_on(run_js("./main.js"));
 }
