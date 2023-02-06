@@ -1,7 +1,7 @@
 use deno_core::anyhow::Context;
 use deno_core::error::AnyError;
 use deno_core::v8;
-use deno_runtime::permissions::Permissions;
+use deno_runtime::permissions::PermissionsContainer;
 use deno_runtime::{deno_core, BootstrapOptions};
 use futures::executor::block_on;
 use std::{rc::Rc, sync::Arc};
@@ -28,20 +28,22 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
             unstable: true,
             user_agent: "x".to_string(),
             inspect: false,
+            locale: "".into(),
         },
         extensions: vec![],
+        extensions_with_js: vec![],
         unsafely_ignore_certificate_errors: None,
         root_cert_store: None,
         seed: None,
-        format_js_error_fn: None,
-        source_map_getter: None,
-        web_worker_preload_module_cb: Arc::new(|_| unreachable!()),
-        web_worker_pre_execute_module_cb: Arc::new(|_| unreachable!()),
-        create_web_worker_cb: Arc::new(|_| unreachable!()),
-        maybe_inspector_server: None,
-        should_break_on_first_statement: false,
         module_loader: Rc::new(module_loader::FsModuleLoader),
         npm_resolver: None,
+        create_web_worker_cb: Arc::new(|_| unreachable!()),
+        web_worker_preload_module_cb: Arc::new(|_| unreachable!()),
+        web_worker_pre_execute_module_cb: Arc::new(|_| unreachable!()),
+        format_js_error_fn: None,
+        source_map_getter: None,
+        maybe_inspector_server: None,
+        should_break_on_first_statement: false,
         get_error_class_fn: None,
         cache_storage_dir: None,
         origin_storage_dir: None,
@@ -51,11 +53,13 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
         shared_array_buffer_store: None,
         compiled_wasm_module_store: None,
         stdio: Default::default(),
+        startup_snapshot: None,
+        should_wait_for_inspector_session: false,
     };
 
     let mut runtime = deno_runtime::worker::MainWorker::bootstrap_from_options(
         main_module.clone(),
-        Permissions::allow_all(),
+        PermissionsContainer::allow_all(),
         options,
     )
     .js_runtime;
@@ -63,10 +67,13 @@ async fn run_js(file_path: &str) -> Result<(), AnyError> {
     let module_id = runtime
         .load_main_module(
             &main_module,
-            Some(r#"
+            Some(
+                r#"
 const obj = {name: "gorilla"};
 export { obj };
-"#.into()),
+"#
+                .into(),
+            ),
         )
         .await?;
 

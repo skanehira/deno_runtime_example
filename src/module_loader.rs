@@ -2,6 +2,7 @@ use deno_ast::parse_module;
 use deno_ast::EmitOptions;
 use deno_ast::ParseParams;
 use deno_ast::SourceTextInfo;
+use deno_core::ResolutionKind;
 use deno_core::anyhow::Error;
 use deno_core::ModuleLoader;
 use deno_core::ModuleSource;
@@ -82,7 +83,7 @@ impl ModuleLoader for FsModuleLoader {
         &self,
         specifier: &str,
         referrer: &str,
-        _is_main: bool,
+        _kind: ResolutionKind,
     ) -> Result<ModuleSpecifier, Error> {
         Ok(deno_core::resolve_import(specifier, referrer)?)
     }
